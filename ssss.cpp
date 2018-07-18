@@ -60,11 +60,6 @@ Ssss::getFamilyId() const {
   return family << 3 | ((threshold - 2) & 0x7);
 }
 
-uint8_t 
-Ssss::getShares() const {
-  return shares;
-}
-
 void 
 Ssss::setMode(uint8_t m) {
   mode = m;
@@ -83,6 +78,8 @@ void
 Ssss::setThreshold(uint8_t thresh) {
   threshold = thresh;
   EEPROM.put( SSSS_EEPROM_FAMILY_IDX, getFamilyId());
+  // change in threshold means that we need to reset our
+  // entropy counters.
   ent_sweeps = 0;
   ent_index = SSSS_EEPROM_DATA_START + payload;
 }
@@ -91,15 +88,11 @@ void
 Ssss::setPayload(uint8_t payl) {
   payload = payl;
   EEPROM.write( SSSS_EEPROM_PAYLOAD_IDX, payload);
+  // change in payload means that we need to reset our
+  // entropy counters
   ent_sweeps = 0;
   ent_index = SSSS_EEPROM_DATA_START + payload;
 }
-
-void 
-Ssss::setPayloadLength(uint8_t payload) {
-  EEPROM.write( SSSS_EEPROM_PAYLOAD_IDX, payload);
-}
-
 
   // Deal Setup
 void 
@@ -111,16 +104,25 @@ Ssss::beginShuffle() {
 
 bool 
 Ssss::addEntropy(uint8_t entropy) {
+  // We only need to collect entropy when we are in shuffle mode.
   if(mode == Shuffle) {
-    if(ent_sweeps < 2) {
+    // EEPROM has a limited lifetime, so stop writing to it if we have
+    // more than sufficient entropy
+    if(ent_sweeps < 8) {
+      // xor the current byte with what is already there
       EEPROM.write(ent_index, entropy ^ EEPROM.read(ent_index));
       ent_index += 1;
+
       if(ent_index > SSSS_EEPROM_DATA_START + threshold * payload) {
         ent_index = SSSS_EEPROM_DATA_START + payload;
         ent_sweeps += 1;
       }
+
+      // At a minimim, we need to have 
       return ent_sweeps >= 2;
     }
+
+    return false;
   }
 
   return false;
@@ -170,7 +172,7 @@ Ssss::dealNextShare(int8_t *buffer) { // writes share bytes to buffer - does not
     for(uint8_t j = 0; j<threshold; j++, l+=payload) {
       sum = sum + powers[j] * EEPROM.read(l);
     }
-    buffer[i++] = sum.n;
+    buffer[i++] = sum;
   }
 
   EEPROM.write( SSSS_EEPROM_SHARE_IDX, shares);
@@ -260,7 +262,7 @@ Ssss::getSecret(uint8_t *buffer) {
     for(uint8_t j = 0; j<shares; ++j, k+=p) {
       sum = sum + lagrange_value[j] * EEPROM.read( k );
     }
-    buffer[i] = sum.n;
+    buffer[i] = sum;
   } 
 }
 
