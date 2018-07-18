@@ -38,7 +38,7 @@
 
 
 enum SsssMode: uint8_t {
-  NoMode, Shuffle, Deal, Collect, Reveal
+  NoMode=0, Shuffle, Deal, Collect, Reveal
 };
 
 // Shares add two bytes to the beginning of the payload
@@ -104,6 +104,8 @@ class Ssss {
   uint8_t getFamily() const {return family;}
   uint8_t getThreshold() const {return threshold;}
   uint8_t getPayloadBytes() const {return payload;}
+  uint8_t getPayloadWords() const {return (3*payload+2)/4;}
+
   bool hasFamily() const;
 
   // Deal Setup

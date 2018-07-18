@@ -1,4 +1,5 @@
 #include "ssss.h"
+#include <Arduino.h>
 #include <EEPROM.h>
 
 
@@ -32,6 +33,7 @@ Ssss::clear() {
     lagrange_value[i] = 0;
     powers[i] = 0;
   }
+  LoadState();
 }
 
 void Ssss::LoadState() {
@@ -45,7 +47,7 @@ void Ssss::LoadState() {
 
 bool
 Ssss::hasFamily() const {
-  return shares > 1 || mode == Deal || mode == Reveal;
+  return shares > 0 || mode == Deal || mode == Reveal || mode == Shuffle;
 }
 
 uint8_t
@@ -74,19 +76,23 @@ Ssss::setMode(uint8_t m) {
 void 
 Ssss::setFamily(uint8_t fam) {
   family = fam;
-  //EEPROM.write( SSSS_EEPROM_FAMILY_IDX, getFamilyId());
+  EEPROM.write( SSSS_EEPROM_FAMILY_IDX, getFamilyId());
 }
 
 void 
 Ssss::setThreshold(uint8_t thresh) {
   threshold = thresh;
   EEPROM.put( SSSS_EEPROM_FAMILY_IDX, getFamilyId());
+  ent_sweeps = 0;
+  ent_index = SSSS_EEPROM_DATA_START + payload;
 }
 
 void 
 Ssss::setPayload(uint8_t payl) {
   payload = payl;
   EEPROM.write( SSSS_EEPROM_PAYLOAD_IDX, payload);
+  ent_sweeps = 0;
+  ent_index = SSSS_EEPROM_DATA_START + payload;
 }
 
 void 
@@ -116,6 +122,8 @@ Ssss::addEntropy(uint8_t entropy) {
       return ent_sweeps >= 2;
     }
   }
+
+  return false;
 }
 
 void 
@@ -124,6 +132,9 @@ Ssss::addSecret(uint8_t *secret) {
   for(uint8_t i = 0; i<payload; ++i) {
     EEPROM.write(index++, secret[i]);
     secret[i] = 0;  // dont leave extra copies of the secret lying around
+  }
+
+  for(uint16_t i=0,k=SSSS_EEPROM_DATA_START; i<threshold*(payload+1);i++,k++ ) {
   }
 }
 
@@ -168,9 +179,9 @@ Ssss::dealNextShare(int8_t *buffer) { // writes share bytes to buffer - does not
 void 
 Ssss::beginCollect() {
   mode = Collect;
-  //EEPROM.write(SSSS_EEPROM_MODE_IDX, mode);
+  EEPROM.write(SSSS_EEPROM_MODE_IDX, mode);
   shares = 0;
-  //EEPROM.write(SSSS_EEPROM_SHARE_IDX, shares);
+  EEPROM.write(SSSS_EEPROM_SHARE_IDX, shares);
 }
 
 
@@ -193,7 +204,7 @@ Ssss::checkFamily(uint8_t *share) const {
 void
 Ssss::addShare(uint8_t *share) {
   uint8_t idx = shares;
-
+  
   if(shares == 0) {
     setFamily( share[0] >> 3);
     setThreshold( (share[0] & 0x7) + 2);
@@ -202,7 +213,7 @@ Ssss::addShare(uint8_t *share) {
 
   // check for overwriting an existing share
   uint16_t k = SSSS_EEPROM_DATA_START;
-  for(uint8_t j=0; j<idx; j++, k += payload + 1) {
+  for(uint8_t j=0; j<shares; j++, k += payload + 1) {
     if(EEPROM.read(k) == share[1]) {
       idx = j;
       break;
@@ -216,11 +227,9 @@ Ssss::addShare(uint8_t *share) {
   }
 
   if(idx == shares) {
-    shares += 1;
+    shares++;
     EEPROM.write( SSSS_EEPROM_SHARE_IDX, shares);
   }
-
-  return true;
 }
   
 bool 
