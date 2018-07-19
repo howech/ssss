@@ -51,11 +51,6 @@ Ssss::hasFamily() const {
 }
 
 uint8_t
-Ssss::getMode() const {
-  return mode;
-}
-
-uint8_t
 Ssss::getFamilyId() const {
   return family << 3 | ((threshold - 2) & 0x7);
 }
@@ -170,7 +165,7 @@ Ssss::dealNextShare(int8_t *buffer) { // writes share bytes to buffer - does not
     gf256 sum = 0;
     uint16_t l = SSSS_EEPROM_DATA_START + k;
     for(uint8_t j = 0; j<threshold; j++, l+=payload) {
-      sum = sum + powers[j] * EEPROM.read(l);
+      sum = sum + powers[j] * (gf256) EEPROM.read(l);
     }
     buffer[i++] = sum;
   }
@@ -260,7 +255,7 @@ Ssss::getSecret(uint8_t *buffer) {
     gf256 sum = 0;
     k=SSSS_EEPROM_DATA_START+i;
     for(uint8_t j = 0; j<shares; ++j, k+=p) {
-      sum = sum + lagrange_value[j] * EEPROM.read( k );
+      sum = sum + lagrange_value[j] * (gf256) EEPROM.read( k );
     }
     buffer[i] = sum;
   } 

@@ -59,7 +59,7 @@ class Ssss {
   uint8_t mode;
 
   // working memory to encode/decode polynomial data
-  gf256 powers[SSS_MAX_SHARES];
+  gf256 powers[SSSS_MAX_SHARES];
   gf256 lagrange_value[SSSS_MAX_SHARES];
 
   public:
